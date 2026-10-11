@@ -1,0 +1,39 @@
+#!/bin/bash
+# Blocks commits that would add secrets. This repo is public.
+# Enabled per clone with: git config core.hooksPath .githooks
+
+blocked=0
+
+# Files that must never be committed.
+while IFS= read -r file; do
+    case "$file" in
+        partymate/SupabaseSecrets.swift|*.p8|.env|.env.*)
+            echo "Blocked: $file must never be committed."
+            blocked=1
+            ;;
+    esac
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+
+# Secret-looking text in the lines being added (the template's placeholders are fine).
+patterns=(
+    'eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}'   # JWTs, e.g. Supabase anon or service-role keys
+    'sb_(secret|publishable)_[A-Za-z0-9_-]{10,}'  # new-style Supabase keys
+    'https://[a-z0-9]{20}\.supabase\.co'          # a real Supabase project URL
+    'service_role'
+    '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+    'gh[pousr]_[A-Za-z0-9]{30,}'                  # GitHub tokens
+    'AKIA[0-9A-Z]{16}'                            # AWS access keys
+)
+added=$(git diff --cached -U0 --diff-filter=ACMR -- . ':(exclude).githooks/pre-commit' | grep -E '^\+[^+]')
+for pattern in "${patterns[@]}"; do
+    match=$(printf '%s\n' "$added" | grep -Eo -- "$pattern" | head -1)
+    if [ -n "$match" ]; then
+        echo "Blocked: staged changes contain something that looks like a secret (${match:0:24}...)."
+        blocked=1
+    fi
+done
+
+if [ $blocked -ne 0 ]; then
+    echo "Commit stopped. Remove the secret, or move it into an ignored file such as partymate/SupabaseSecrets.swift."
+    exit 1
+fi

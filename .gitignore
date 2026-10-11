@@ -1,0 +1,19 @@
+# Xcode build output
+DerivedData/
+build/
+
+# Personal Xcode settings (window layout, scheme order, breakpoints)
+xcuserdata/
+*.xcuserstate
+
+# macOS
+.DS_Store
+
+# Secrets that must never be committed
+partymate/SupabaseSecrets.swift
+*.p8
+.env
+.env.*
+
+# Claude Code personal settings (the shared settings.json is kept)
+.claude/settings.local.json
